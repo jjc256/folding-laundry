@@ -4,14 +4,16 @@
   "homepage": "https://jjc256.github.io/folding-laundry",
   "private": true,
   "dependencies": {
-    "three": "0.174.0",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "three": "^0.174.1"
   },
   "scripts": {
     "predeploy": "npm run build",
     "start": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "dev": "vite",
+    "deploy": "vite build"
   },
   "browserslist": {
     "production": [

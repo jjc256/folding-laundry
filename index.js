@@ -1,7 +1,29 @@
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js';
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
-import { ParametricGeometry } from "three/examples/jsm/geometries/ParametricGeometry";
-import Stats from "three/examples/jsm/libs/stats.module";
+let THREE, OrbitControls, ParametricGeometry, Stats;
+
+async function init() {
+    if (import.meta.env.PROD) {
+        // Production: Use CDN
+        THREE = await import('https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js');
+        OrbitControls = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/controls/OrbitControls.js');
+        ParametricGeometry = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/geometries/ParametricGeometry.js');
+        Stats = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/libs/stats.module.js');
+    } else {
+        // Development: Use local modules
+        THREE = await import('three');
+        const orbitControls = await import('three/examples/jsm/controls/OrbitControls');
+        const parametricGeometry = await import('three/examples/jsm/geometries/ParametricGeometry');
+        const stats = await import('three/examples/jsm/libs/stats.module');
+        
+        OrbitControls = orbitControls.OrbitControls;
+        ParametricGeometry = parametricGeometry.ParametricGeometry;
+        Stats = stats.default;
+    }
+
+    // Start your existing code here
+    new TableCloth();
+}
+
+init();
 
 // Simulation parameters
 const DAMPING = 0.03;
@@ -336,5 +358,4 @@ class TableCloth {
     }
 }
 
-// Start simulation
-new TableCloth();
+// The simulation is started in the init() function
