@@ -30,6 +30,16 @@ Add collision detection between hands and cloth
 Develop basic grasp capability
 Deliverable: Hands that can interact with the cloth in simple ways
 
+Phase 4.5: Cloth Flattening & Preparation
+
+Implement cloth grasping at corners and edges
+Develop algorithms to identify corners in crumpled cloth
+Create motion sequence for picking up and shaking cloth
+Simulate gravity-assisted flattening behavior
+Add place-down mechanics to position cloth flat on surface
+Develop detection of cloth orientation after placement
+Deliverable: System capable of transforming crumpled cloth to flat state
+
 Phase 5: Basic Folding Algorithm
 
 Implement the four-step folding sequence for square cloth
