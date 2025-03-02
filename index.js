@@ -1,18 +1,22 @@
 let THREE, OrbitControls, ParametricGeometry, Stats;
 
 async function init() {
-    if (import.meta.env.PROD) {
-        // Production: Use CDN
-        THREE = await import('https://cdn.jsdelivr.net/npm/three@latest/build/three.module.js');
-        OrbitControls = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/controls/OrbitControls.js');
-        ParametricGeometry = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/geometries/ParametricGeometry.js');
-        Stats = await import('https://cdn.jsdelivr.net/npm/three@latest/examples/jsm/libs/stats.module.js');
-    } else {
+    try {
         // Development: Use local modules
         THREE = await import('three');
         const orbitControls = await import('three/examples/jsm/controls/OrbitControls');
         const parametricGeometry = await import('three/examples/jsm/geometries/ParametricGeometry');
         const stats = await import('three/examples/jsm/libs/stats.module');
+        
+        OrbitControls = orbitControls.OrbitControls;
+        ParametricGeometry = parametricGeometry.ParametricGeometry;
+        Stats = stats.default;
+    } catch (e) {
+        // Production: Fallback to CDN
+        THREE = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/build/three.module.js');
+        const orbitControls = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/controls/OrbitControls.js');
+        const parametricGeometry = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/geometries/ParametricGeometry.js');
+        const stats = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/libs/stats.module.js');
         
         OrbitControls = orbitControls.OrbitControls;
         ParametricGeometry = parametricGeometry.ParametricGeometry;
