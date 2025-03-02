@@ -13,10 +13,10 @@ async function init() {
         Stats = stats.default;
     } catch (e) {
         // Production: Fallback to CDN
-        THREE = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/build/three.module.js');
-        const orbitControls = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/controls/OrbitControls.js');
-        const parametricGeometry = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/geometries/ParametricGeometry.js');
-        const stats = await import('https://cdn.jsdelivr.net/npm/three@0.174.1/examples/jsm/libs/stats.module.js');
+        THREE = await import('https://cdn.jsdelivr.net/npm/three/build/three.module.js');
+        const orbitControls = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js');
+        const parametricGeometry = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js');
+        const stats = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js');
         
         OrbitControls = orbitControls.OrbitControls;
         ParametricGeometry = parametricGeometry.ParametricGeometry;
