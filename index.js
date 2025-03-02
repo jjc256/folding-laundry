@@ -4,6 +4,7 @@ import Stats from 'three/examples/jsm/libs/stats.module';
 import ClothSimulation from './src/ClothSimulation.js';
 import StereoVision from './src/StereoVision.js';
 import UserInterface from './src/UserInterface.js';
+import { TABLE_Y } from './src/constants.js';
 
 class Application {
     constructor() {
@@ -34,8 +35,9 @@ class Application {
             1,
             10000
         );
-        this.camera.position.set(0, 500, 1000);
-        this.camera.lookAt(0, 0, 0);
+        // Move main camera to match the new stereo camera position setup
+        this.camera.position.set(0, 500, 1200); // Increased Z for better view from same side as cameras
+        this.camera.lookAt(0, TABLE_Y, 0);      // Look at center of table
     }
 
     setupLights() {
@@ -105,8 +107,12 @@ class Application {
     }
 
     renderCurrentView() {
-        // Always update stereo camera views
+        // Always update stereo camera views and label positions
         this.stereoVision.renderViews();
+        
+        if (this.stereoVision.labels) {
+            this.stereoVision.updateLabelPositions();
+        }
         
         // Render based on current view mode
         switch (this.ui.currentView) {
@@ -130,6 +136,14 @@ class Application {
                 this.stereoVision.renderCombinedView(this.renderer, this.scene, this.camera);
                 break;
         }
+    }
+    
+    // Make sure to properly clean up when application is destroyed
+    dispose() {
+        if (this.stereoVision) {
+            this.stereoVision.dispose();
+        }
+        // Other cleanup as needed
     }
 }
 
