@@ -1,36 +1,7 @@
-let THREE, OrbitControls, ParametricGeometry, Stats;
-
-function init() {
-    const threePath = "https://cdn.jsdelivr.net/npm/three/build/three.module.js";
-    const orbitControlsPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js";
-    const parametricGeometryPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js";
-    const statsPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js";
-
-    Promise.all([
-        import(threePath),
-        import(orbitControlsPath),
-        import(parametricGeometryPath),
-        import(statsPath)
-    ]).then(([three, orbitControls, parametricGeometry, stats]) => {
-        THREE = three;
-        OrbitControls = orbitControls.OrbitControls;
-        ParametricGeometry = parametricGeometry.ParametricGeometry;
-        Stats = stats.default;
-
-        console.log("THREE.js loaded", THREE);
-        console.log("OrbitControls loaded", OrbitControls);
-        console.log("ParametricGeometry loaded", ParametricGeometry);
-        console.log("Stats module loaded", Stats);
-
-        // Start the TableCloth simulation
-        new TableCloth();
-    }).catch(error => {
-        console.error("Error loading modules:", error);
-    });
-}
-
-init();
-
+import * as THREE from 'three';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+import Stats from 'three/examples/jsm/libs/stats.module';
+import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry';
 
 
 // Simulation parameters
@@ -58,7 +29,7 @@ const TABLE_THICKNESS = 20;
 
 const HOLD_TIME = 1000; // Hold for 1 second before dropping
 const CENTER_PIN_HEIGHT = 500; // Height to hold the center point
-const ANGULAR_DAMPING = 1;
+const ANGULAR_DAMPING = 0.95;
 
 class Particle {
     constructor(x, y, z, mass) {
@@ -367,3 +338,24 @@ class TableCloth {
 }
 
 // The simulation is started in the init() function
+function init() {
+
+    
+    
+    console.log(typeof THREE);
+    console.log(typeof OrbitControls);
+    console.log(typeof Stats);
+    console.log(typeof ParametricGeometry);
+    if (typeof THREE !== 'undefined' && typeof OrbitControls !== 'undefined' && typeof Stats !== 'undefined' && typeof ParametricGeometry !== 'undefined') {
+        console.log("THREE.js loaded", THREE);
+        console.log("OrbitControls loaded", OrbitControls);
+        console.log("Stats module loaded", Stats);
+        console.log("ParametricGeometry loaded", ParametricGeometry);
+
+        new TableCloth();
+    } else {
+        console.error("Error: One or more libraries failed to load.");
+    }
+}
+
+init();
