@@ -1,12 +1,10 @@
 let THREE, OrbitControls, ParametricGeometry, Stats;
 
 function init() {
-    const isLocal = window.location.hostname === "localhost";
-
-    const threePath = isLocal ? "./node_modules/three/build/three.module.js" : "https://cdn.jsdelivr.net/npm/three/build/three.module.js";
-    const orbitControlsPath = isLocal ? "./node_modules/three/examples/jsm/controls/OrbitControls.js" : "https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js";
-    const parametricGeometryPath = isLocal ? "./node_modules/three/examples/jsm/geometries/ParametricGeometry.js" : "https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js";
-    const statsPath = isLocal ? "./node_modules/three/examples/jsm/libs/stats.module.js" : "https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js";
+    const threePath = "https://cdn.jsdelivr.net/npm/three/build/three.module.js";
+    const orbitControlsPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js";
+    const parametricGeometryPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js";
+    const statsPath = "https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js";
 
     Promise.all([
         import(threePath),
@@ -24,7 +22,7 @@ function init() {
         console.log("ParametricGeometry loaded", ParametricGeometry);
         console.log("Stats module loaded", Stats);
 
-        // Start your existing code here
+        // Start the TableCloth simulation
         new TableCloth();
     }).catch(error => {
         console.error("Error loading modules:", error);

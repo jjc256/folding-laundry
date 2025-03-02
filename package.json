@@ -4,8 +4,7 @@
   "homepage": "https://jjc256.github.io/folding-laundry",
   "private": true,
   "dependencies": {
-    "web-vitals": "^2.1.4",
-    "three": "^0.174.0"
+    "web-vitals": "^2.1.4"
   },
   "scripts": {
     "predeploy": "npm run build",
