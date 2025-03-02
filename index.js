@@ -1,27 +1,32 @@
 let THREE, OrbitControls, ParametricGeometry, Stats;
 
 async function init() {
-    try {
+    if (window.location.hostname === "localhost") {
         // Development: Use local modules
         THREE = await import('three');
-        const orbitControls = await import('three/examples/jsm/controls/OrbitControls');
-        const parametricGeometry = await import('three/examples/jsm/geometries/ParametricGeometry');
-        const stats = await import('three/examples/jsm/libs/stats.module');
-        
+        const orbitControls = await import('three/examples/jsm/controls/OrbitControls.js');
+        const parametricGeometry = await import('three/examples/jsm/geometries/ParametricGeometry.js');
+        const stats = await import('three/examples/jsm/libs/stats.module.js');
+
         OrbitControls = orbitControls.OrbitControls;
         ParametricGeometry = parametricGeometry.ParametricGeometry;
         Stats = stats.default;
-    } catch (e) {
-        // Production: Fallback to CDN
+    } else {
+        // Production: Use CDN
         THREE = await import('https://cdn.jsdelivr.net/npm/three/build/three.module.js');
         const orbitControls = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js');
         const parametricGeometry = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js');
         const stats = await import('https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js');
-        
+
         OrbitControls = orbitControls.OrbitControls;
         ParametricGeometry = parametricGeometry.ParametricGeometry;
         Stats = stats.default;
     }
+
+    console.log("THREE.js loaded", THREE);
+    console.log("OrbitControls loaded", OrbitControls);
+    console.log("ParametricGeometry loaded", ParametricGeometry);
+    console.log("Stats module loaded", Stats);
 
     // Start your existing code here
     new TableCloth();
