@@ -5,7 +5,7 @@ import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeom
 
 
 // Simulation parameters
-const DAMPING = 0.03;
+const DAMPING = 0.05;           // Increased from 0.03
 const DRAG = 1 - DAMPING;
 const MASS = 0.1;
 const GRAVITY = 981 * 1.4;
@@ -23,9 +23,13 @@ const TABLE_WIDTH = 300;
 const TABLE_DEPTH = 300;
 const FRICTION = 0.8;
 const STICK_THRESHOLD = 0.1;
-const COLLISION_ITERATIONS = 3;
-const COLLISION_RESPONSE = 0.75;
+const COLLISION_ITERATIONS = 5;  // Increased from 3
+const CONSTRAINT_ITERATIONS = 3; // New constant
+const RELAXATION = 0.2;         // Reduced from 0.3
+const SUB_STEPS = 4;            // Increased from 2
+const COLLISION_RESPONSE = 0.5;  // Reduced from 0.75
 const TABLE_THICKNESS = 20;
+const REST_THRESHOLD = 1e-4;    // New constant for rest detection
 
 const HOLD_TIME = 1000; // Hold for 1 second before dropping
 const CENTER_PIN_HEIGHT = 500; // Height to hold the center point
@@ -207,76 +211,105 @@ class TableCloth {
     }
 
     simulate() {
-        // Check if we should release the pin
+        const dt = TIMESTEP / SUB_STEPS;
+        const dtSq = dt * dt;
+
+        // Check if it's time to release the cloth
         if (this.isPinned && Date.now() - this.startTime > HOLD_TIME) {
             this.isPinned = false;
+            console.log("Cloth released");
         }
 
-        // Apply gravity
-        const gravity = new THREE.Vector3(0, -GRAVITY, 0).multiplyScalar(MASS);
-        
-        // Update particles
-        for (const particle of this.particles) {
-            particle.addForce(gravity);
-            particle.integrate(TIMESTEP_SQ);
-        }
-
-        // Pin center point if still holding
-        if (this.isPinned) {
-            const centerIndex = Math.floor(this.particles.length / 2);
-            const centerParticle = this.particles[centerIndex];
-            centerParticle.position.set(0, CENTER_PIN_HEIGHT, 0);
-            centerParticle.previous.copy(centerParticle.position);
-        }
-
-        // Multiple collision iterations for stability
-        for (let i = 0; i < COLLISION_ITERATIONS; i++) {
-            // Satisfy constraints first
-            for (const [p1, p2, distance] of this.constraints) {
-                this.satisfyConstraint(p1, p2, distance);
+        for (let step = 0; step < SUB_STEPS; step++) {
+            // Apply gravity
+            const gravity = new THREE.Vector3(0, -GRAVITY, 0).multiplyScalar(MASS);
+            
+            for (const particle of this.particles) {
+                particle.addForce(gravity);
+                particle.integrate(dtSq);
             }
 
-            // Then handle collisions
-            this.handleCollisions();
+            // Pin handling
+            if (this.isPinned) {
+                const centerIndex = Math.floor(this.particles.length / 2);
+                const centerParticle = this.particles[centerIndex];
+                centerParticle.position.set(0, CENTER_PIN_HEIGHT, 0);
+                centerParticle.previous.copy(centerParticle.position);
+            }
+
+            // Multiple constraint iterations
+            for (let i = 0; i < CONSTRAINT_ITERATIONS; i++) {
+                for (const [p1, p2, distance] of this.constraints) {
+                    this.satisfyConstraint(p1, p2, distance);
+                }
+            }
+
+            // Multiple collision iterations
+            for (let i = 0; i < COLLISION_ITERATIONS; i++) {
+                this.handleCollisions();
+            }
+
+            // Apply velocity damping
+            this.dampVelocities();
         }
     }
 
     handleCollisions() {
         const tableTop = TABLE_Y + TABLE_THICKNESS/2;
         const centerOfMass = this.calculateCenterOfMass();
+        let totalAngularImpulse = 0;
         
+        // First pass: calculate total angular impulse
         for (const particle of this.particles) {
             if (particle.position.y < tableTop) {
-                // Calculate penetration depth
-                const penetration = tableTop - particle.position.y;
-                
-                // Store original velocity for angular momentum
                 const velocity = new THREE.Vector3().subVectors(
                     particle.position,
                     particle.previous
                 );
-
-                // Calculate radius vector from center of mass
+                
                 const radius = new THREE.Vector3().subVectors(
                     particle.position,
                     centerOfMass
                 );
                 
+                // Calculate angular contribution
+                const angularImpulse = radius.cross(velocity).y;
+                totalAngularImpulse += angularImpulse;
+            }
+        }
+
+        // Second pass: apply balanced forces
+        for (const particle of this.particles) {
+            if (particle.position.y < tableTop) {
+                const penetration = tableTop - particle.position.y;
+                const velocity = new THREE.Vector3().subVectors(
+                    particle.position,
+                    particle.previous
+                );
+                
+                const radius = new THREE.Vector3().subVectors(
+                    particle.position,
+                    centerOfMass
+                );
+
                 // Apply position correction
                 particle.position.y = tableTop;
-                
-                // Apply friction with angular momentum conservation
+
                 if (velocity.length() < STICK_THRESHOLD) {
                     particle.previous.copy(particle.position);
                 } else {
-                    // Compute tangential velocity
+                    // Calculate balanced tangential force
                     const tangential = new THREE.Vector3(velocity.x, 0, velocity.z);
-                    tangential.multiplyScalar(ANGULAR_DAMPING);
+                    const angularCorrection = (totalAngularImpulse * ANGULAR_DAMPING) / 
+                                           (this.particles.length * radius.length());
                     
-                    // Apply damped velocity while preserving direction
-                    particle.previous.x = particle.position.x - tangential.x * (1 - FRICTION);
-                    particle.previous.z = particle.position.z - tangential.z * (1 - FRICTION);
-                    particle.previous.y = particle.position.y - velocity.y * COLLISION_RESPONSE;
+                    // Apply corrected velocity
+                    particle.previous.x = particle.position.x - 
+                        (tangential.x * (1 - FRICTION) - radius.z * angularCorrection);
+                    particle.previous.z = particle.position.z - 
+                        (tangential.z * (1 - FRICTION) + radius.x * angularCorrection);
+                    particle.previous.y = particle.position.y - 
+                        velocity.y * COLLISION_RESPONSE;
                 }
                 
                 this.propagateCollision(particle, penetration * 0.5);
@@ -308,10 +341,36 @@ class TableCloth {
         const currentDist = diff.length();
         if (currentDist === 0) return;
         
-        const correction = diff.multiplyScalar(1 - distance / currentDist);
+        // Softer constraint satisfaction
+        const error = Math.abs(currentDist - distance);
+        const relaxFactor = Math.min(RELAXATION, error * 0.5);
+        
+        const correction = diff.multiplyScalar(
+            (1 - distance / currentDist) * relaxFactor
+        );
         const correctionHalf = correction.multiplyScalar(0.5);
         p1.position.add(correctionHalf);
         p2.position.sub(correctionHalf);
+    }
+
+    dampVelocities() {
+        for (const particle of this.particles) {
+            const velocity = new THREE.Vector3().subVectors(
+                particle.position,
+                particle.previous
+            );
+            
+            // Enhanced damping for small velocities
+            const speedSq = velocity.lengthSq();
+            if (speedSq < REST_THRESHOLD) {
+                particle.previous.copy(particle.position);
+            } else if (speedSq < 1.0) {
+                const damping = Math.max(0.1, Math.min(0.99, speedSq));
+                particle.previous.lerp(particle.position, damping * DAMPING);
+            } else {
+                particle.previous.lerp(particle.position, DAMPING);
+            }
+        }
     }
 
     updateClothGeometry() {
