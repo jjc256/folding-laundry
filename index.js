@@ -1,86 +1,27 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
 import Stats from 'three/examples/jsm/libs/stats.module';
-import { ParametricGeometry } from 'three/examples/jsm/geometries/ParametricGeometry';
+import ClothSimulation from './src/ClothSimulation.js';
+import StereoVision from './src/StereoVision.js';
+import UserInterface from './src/UserInterface.js';
 
-
-// Simulation parameters
-const DAMPING = 0.05;           // Increased from 0.03
-const DRAG = 1 - DAMPING;
-const MASS = 0.1;
-const GRAVITY = 981 * 1.4;
-const TIMESTEP = 18 / 1000;
-const TIMESTEP_SQ = TIMESTEP * TIMESTEP;
-
-// Cloth parameters
-const xSegs = 30;
-const ySegs = 30;
-const restDistance = 10;
-
-// Table parameters
-const TABLE_Y = -100;
-const TABLE_WIDTH = 300;
-const TABLE_DEPTH = 300;
-const FRICTION = 0.8;
-const STICK_THRESHOLD = 0.1;
-const COLLISION_ITERATIONS = 5;  // Increased from 3
-const CONSTRAINT_ITERATIONS = 3; // New constant
-const RELAXATION = 0.2;         // Reduced from 0.3
-const SUB_STEPS = 4;            // Increased from 2
-const COLLISION_RESPONSE = 0.5;  // Reduced from 0.75
-const TABLE_THICKNESS = 20;
-const REST_THRESHOLD = 1e-4;    // New constant for rest detection
-
-const HOLD_TIME = 1000; // Hold for 1 second before dropping
-const CENTER_PIN_HEIGHT = 500; // Height to hold the center point
-const ANGULAR_DAMPING = 0.95;
-
-class Particle {
-    constructor(x, y, z, mass) {
-        this.position = new THREE.Vector3();
-        this.previous = new THREE.Vector3();
-        this.original = new THREE.Vector3();
-        this.a = new THREE.Vector3(0, 0, 0); // acceleration
-        this.mass = mass;
-        this.invMass = 1 / mass;
-        this.tmp = new THREE.Vector3();
-        this.tmp2 = new THREE.Vector3();
-
-        // Initialize position
-        this.position.set(x, y, z);
-        this.previous.copy(this.position);
-        this.original.copy(this.position);
-    }
-
-    addForce(force) {
-        this.a.add(this.tmp2.copy(force).multiplyScalar(this.invMass));
-    }
-
-    integrate(timesq) {
-        const newPos = this.tmp.subVectors(this.position, this.previous);
-        newPos.multiplyScalar(DRAG).add(this.position);
-        newPos.add(this.a.multiplyScalar(timesq));
-
-        this.tmp = this.previous;
-        this.previous = this.position;
-        this.position = newPos;
-
-        this.a.set(0, 0, 0);
-    }
-}
-
-class TableCloth {
+class Application {
     constructor() {
         this.scene = new THREE.Scene();
         this.setupCamera();
         this.setupLights();
         this.setupRenderer();
-        this.setupCloth();
-        this.setupTable();
         this.setupControls();
+
+        // Create simulation components
+        this.clothSim = new ClothSimulation(this.scene);
+        this.stereoVision = new StereoVision(this.scene, this.renderer);
+        this.ui = new UserInterface(this);
         
-        this.startTime = Date.now();
-        this.isPinned = true;
+        this.currentView = 'combined';
+        
+        // Handle window resize
+        window.addEventListener('resize', this.onWindowResize.bind(this));
 
         this.animate = this.animate.bind(this);
         requestAnimationFrame(this.animate);
@@ -114,304 +55,92 @@ class TableCloth {
         document.body.appendChild(this.renderer.domElement);
     }
 
-    setupCloth() {
-        // Create cloth geometry and particles
-        const clothWidth = 300;
-        const clothHeight = 200;
-        const stepX = clothWidth / xSegs;
-        const stepY = clothHeight / ySegs;
-
-        // Initialize particles
-        this.particles = [];
-        for (let y = 0; y <= ySegs; y++) {
-            for (let x = 0; x <= xSegs; x++) {
-                const px = (x - xSegs/2) * stepX;
-                const py = 200; // Start height
-                const pz = (y - ySegs/2) * stepY;
-                this.particles.push(new Particle(px, py, pz, MASS));
-            }
-        }
-
-        // Create constraints
-        this.constraints = [];
-        this.createConstraints();
-
-        // Create cloth mesh
-        const geometry = new ParametricGeometry(
-            (u, v, target) => {
-                const x = u * clothWidth - clothWidth/2;
-                const y = v * clothHeight;
-                const z = 0;
-                target.set(x, y, z);
-            },
-            xSegs,
-            ySegs
-        );
-
-        const material = new THREE.MeshPhongMaterial({
-            color: 0x444444,
-            side: THREE.DoubleSide,
-            wireframe: false
-        });
-
-        this.clothMesh = new THREE.Mesh(geometry, material);
-        this.clothMesh.castShadow = true;
-        this.clothMesh.receiveShadow = true;
-        this.scene.add(this.clothMesh);
-    }
-
-    setupTable() {
-        const tableGeometry = new THREE.BoxGeometry(
-            TABLE_WIDTH,
-            20,
-            TABLE_DEPTH
-        );
-        const tableMaterial = new THREE.MeshPhongMaterial({
-            color: 0x886633
-        });
-        this.table = new THREE.Mesh(tableGeometry, tableMaterial);
-        this.table.position.y = TABLE_Y;
-        this.table.receiveShadow = true;
-        this.scene.add(this.table);
-    }
-
     setupControls() {
         this.controls = new OrbitControls(this.camera, this.renderer.domElement);
         this.stats = new Stats();
         document.body.appendChild(this.stats.dom);
     }
 
-    createConstraints() {
-        // Structural constraints (existing)
-        for (let y = 0; y < ySegs; y++) {
-            for (let x = 0; x < xSegs; x++) {
-                const p1 = this.particles[y * (xSegs + 1) + x];
-                const p2 = this.particles[y * (xSegs + 1) + (x + 1)];
-                const p3 = this.particles[(y + 1) * (xSegs + 1) + x];
-                
-                this.constraints.push([p1, p2, restDistance]);
-                this.constraints.push([p1, p3, restDistance]);
-            }
-        }
-
-        // Add shear constraints
-        const diagonalDist = Math.sqrt(restDistance * restDistance * 2);
-        for (let y = 0; y < ySegs; y++) {
-            for (let x = 0; x < xSegs; x++) {
-                const p1 = this.particles[y * (xSegs + 1) + x];
-                const p2 = this.particles[(y + 1) * (xSegs + 1) + (x + 1)];
-                const p3 = this.particles[y * (xSegs + 1) + (x + 1)];
-                const p4 = this.particles[(y + 1) * (xSegs + 1) + x];
-                
-                // Add both diagonals
-                this.constraints.push([p1, p2, diagonalDist]);
-                this.constraints.push([p3, p4, diagonalDist]);
-            }
-        }
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    simulate() {
-        const dt = TIMESTEP / SUB_STEPS;
-        const dtSq = dt * dt;
-
-        // Check if it's time to release the cloth
-        if (this.isPinned && Date.now() - this.startTime > HOLD_TIME) {
-            this.isPinned = false;
-            console.log("Cloth released");
-        }
-
-        for (let step = 0; step < SUB_STEPS; step++) {
-            // Apply gravity
-            const gravity = new THREE.Vector3(0, -GRAVITY, 0).multiplyScalar(MASS);
-            
-            for (const particle of this.particles) {
-                particle.addForce(gravity);
-                particle.integrate(dtSq);
-            }
-
-            // Pin handling
-            if (this.isPinned) {
-                const centerIndex = Math.floor(this.particles.length / 2);
-                const centerParticle = this.particles[centerIndex];
-                centerParticle.position.set(0, CENTER_PIN_HEIGHT, 0);
-                centerParticle.previous.copy(centerParticle.position);
-            }
-
-            // Multiple constraint iterations
-            for (let i = 0; i < CONSTRAINT_ITERATIONS; i++) {
-                for (const [p1, p2, distance] of this.constraints) {
-                    this.satisfyConstraint(p1, p2, distance);
-                }
-            }
-
-            // Multiple collision iterations
-            for (let i = 0; i < COLLISION_ITERATIONS; i++) {
-                this.handleCollisions();
-            }
-
-            // Apply velocity damping
-            this.dampVelocities();
-        }
+    // API for UI
+    resetSimulation() {
+        this.clothSim.reset();
     }
 
-    handleCollisions() {
-        const tableTop = TABLE_Y + TABLE_THICKNESS/2;
-        const centerOfMass = this.calculateCenterOfMass();
-        let totalAngularImpulse = 0;
-        
-        // First pass: calculate total angular impulse
-        for (const particle of this.particles) {
-            if (particle.position.y < tableTop) {
-                const velocity = new THREE.Vector3().subVectors(
-                    particle.position,
-                    particle.previous
-                );
-                
-                const radius = new THREE.Vector3().subVectors(
-                    particle.position,
-                    centerOfMass
-                );
-                
-                // Calculate angular contribution
-                const angularImpulse = radius.cross(velocity).y;
-                totalAngularImpulse += angularImpulse;
-            }
-        }
-
-        // Second pass: apply balanced forces
-        for (const particle of this.particles) {
-            if (particle.position.y < tableTop) {
-                const penetration = tableTop - particle.position.y;
-                const velocity = new THREE.Vector3().subVectors(
-                    particle.position,
-                    particle.previous
-                );
-                
-                const radius = new THREE.Vector3().subVectors(
-                    particle.position,
-                    centerOfMass
-                );
-
-                // Apply position correction
-                particle.position.y = tableTop;
-
-                if (velocity.length() < STICK_THRESHOLD) {
-                    particle.previous.copy(particle.position);
-                } else {
-                    // Calculate balanced tangential force
-                    const tangential = new THREE.Vector3(velocity.x, 0, velocity.z);
-                    const angularCorrection = (totalAngularImpulse * ANGULAR_DAMPING) / 
-                                           (this.particles.length * radius.length());
-                    
-                    // Apply corrected velocity
-                    particle.previous.x = particle.position.x - 
-                        (tangential.x * (1 - FRICTION) - radius.z * angularCorrection);
-                    particle.previous.z = particle.position.z - 
-                        (tangential.z * (1 - FRICTION) + radius.x * angularCorrection);
-                    particle.previous.y = particle.position.y - 
-                        velocity.y * COLLISION_RESPONSE;
-                }
-                
-                this.propagateCollision(particle, penetration * 0.5);
-            }
-        }
+    enableControls(enabled) {
+        this.controls.enabled = enabled;
     }
 
-    calculateCenterOfMass() {
-        const com = new THREE.Vector3();
-        for (const particle of this.particles) {
-            com.add(particle.position);
-        }
-        return com.divideScalar(this.particles.length);
+    updateCameraParams(params) {
+        this.stereoVision.updateCameraParams(params);
     }
 
-    propagateCollision(particle, amount) {
-        // Find connected particles through constraints
-        for (const [p1, p2] of this.constraints) {
-            if (p1 === particle && p2.position.y < TABLE_Y + TABLE_THICKNESS) {
-                p2.position.y += amount;
-            } else if (p2 === particle && p1.position.y < TABLE_Y + TABLE_THICKNESS) {
-                p1.position.y += amount;
-            }
-        }
+    setCameraHelpers(visible) {
+        this.stereoVision.setHelpersVisible(visible);
     }
 
-    satisfyConstraint(p1, p2, distance) {
-        const diff = new THREE.Vector3().subVectors(p2.position, p1.position);
-        const currentDist = diff.length();
-        if (currentDist === 0) return;
-        
-        // Softer constraint satisfaction
-        const error = Math.abs(currentDist - distance);
-        const relaxFactor = Math.min(RELAXATION, error * 0.5);
-        
-        const correction = diff.multiplyScalar(
-            (1 - distance / currentDist) * relaxFactor
-        );
-        const correctionHalf = correction.multiplyScalar(0.5);
-        p1.position.add(correctionHalf);
-        p2.position.sub(correctionHalf);
+    setWireframe(isWireframe) {
+        this.clothSim.setWireframe(isWireframe);
     }
 
-    dampVelocities() {
-        for (const particle of this.particles) {
-            const velocity = new THREE.Vector3().subVectors(
-                particle.position,
-                particle.previous
-            );
-            
-            // Enhanced damping for small velocities
-            const speedSq = velocity.lengthSq();
-            if (speedSq < REST_THRESHOLD) {
-                particle.previous.copy(particle.position);
-            } else if (speedSq < 1.0) {
-                const damping = Math.max(0.1, Math.min(0.99, speedSq));
-                particle.previous.lerp(particle.position, damping * DAMPING);
-            } else {
-                particle.previous.lerp(particle.position, DAMPING);
-            }
-        }
-    }
-
-    updateClothGeometry() {
-        const positions = this.clothMesh.geometry.attributes.position;
-        
-        for (let i = 0; i < this.particles.length; i++) {
-            const particle = this.particles[i];
-            positions.setXYZ(i, particle.position.x, particle.position.y, particle.position.z);
-        }
-        
-        positions.needsUpdate = true;
-        this.clothMesh.geometry.computeVertexNormals();
+    setCurrentView(viewMode) {
+        this.currentView = viewMode;
     }
 
     animate() {
         requestAnimationFrame(this.animate);
         
-        this.simulate();
-        this.updateClothGeometry();
+        // Update simulation
+        this.clothSim.simulate(Date.now());
         
-        this.renderer.render(this.scene, this.camera);
+        // Render the scene according to current view
+        this.renderCurrentView();
+        
         this.stats.update();
+    }
+
+    renderCurrentView() {
+        // Always update stereo camera views
+        this.stereoVision.renderViews();
+        
+        // Render based on current view mode
+        switch (this.ui.currentView) {
+            case 'main':
+                this.renderer.render(this.scene, this.camera);
+                break;
+                
+            case 'left':
+                this.stereoVision.renderLeftView();
+                break;
+                
+            case 'right':
+                this.stereoVision.renderRightView();
+                break;
+                
+            case 'split':
+                this.stereoVision.renderSplitView();
+                break;
+                
+            case 'combined':
+                this.stereoVision.renderCombinedView(this.renderer, this.scene, this.camera);
+                break;
+        }
     }
 }
 
-// The simulation is started in the init() function
+// Start the application
 function init() {
-
-    
-    
-    console.log(typeof THREE);
-    console.log(typeof OrbitControls);
-    console.log(typeof Stats);
-    console.log(typeof ParametricGeometry);
-    if (typeof THREE !== 'undefined' && typeof OrbitControls !== 'undefined' && typeof Stats !== 'undefined' && typeof ParametricGeometry !== 'undefined') {
-        console.log("THREE.js loaded", THREE);
-        console.log("OrbitControls loaded", OrbitControls);
-        console.log("Stats module loaded", Stats);
-        console.log("ParametricGeometry loaded", ParametricGeometry);
-
-        new TableCloth();
+    if (typeof THREE !== 'undefined' && 
+        typeof OrbitControls !== 'undefined' && 
+        typeof Stats !== 'undefined') {
+        
+        console.log("All libraries loaded successfully.");
+        new Application();
     } else {
         console.error("Error: One or more libraries failed to load.");
     }

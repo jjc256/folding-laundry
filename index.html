@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Table Cloth Simulation</title>
+    <title>Folding Laundry Simulation</title>
     <style>
         body {
             margin: 0;
@@ -11,36 +11,24 @@
             background-color: #000;
         }
         canvas {
-            width: 100%;
-            height: 100%;
-        }
-        #info {
-            position: absolute;
-            top: 10px;
-            width: 100%;
-            text-align: center;
-            color: white;
-            font-family: Arial, sans-serif;
-            pointer-events: none;
+            display: block;
         }
     </style>
 </head>
 <body>
-    <div id="info">
-        Table Cloth Simulation<br/>
-        Click and drag to rotate view<br/>
-        Scroll to zoom
-    </div>
     <script type="importmap">
-    {
-        "imports": {
-            "three": "https://cdn.jsdelivr.net/npm/three/build/three.module.js",
-            "three/examples/jsm/controls/OrbitControls": "https://cdn.jsdelivr.net/npm/three/examples/jsm/controls/OrbitControls.js",
-            "three/examples/jsm/geometries/ParametricGeometry": "https://cdn.jsdelivr.net/npm/three/examples/jsm/geometries/ParametricGeometry.js",
-            "three/examples/jsm/libs/stats.module": "https://cdn.jsdelivr.net/npm/three/examples/jsm/libs/stats.module.js"
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.157.0/build/three.module.js",
+                "three/examples/jsm/controls/OrbitControls": "https://unpkg.com/three@0.157.0/examples/jsm/controls/OrbitControls.js",
+                "three/examples/jsm/libs/stats.module": "https://unpkg.com/three@0.157.0/examples/jsm/libs/stats.module.js",
+                "three/examples/jsm/geometries/ParametricGeometry": "https://unpkg.com/three@0.157.0/examples/jsm/geometries/ParametricGeometry.js",
+                "three/examples/jsm/libs/lil-gui.module.min.js": "https://unpkg.com/three@0.157.0/examples/jsm/libs/lil-gui.module.min.js"
+            }
         }
-    }
     </script>
-    <script type="module" src="index.js"></script>
+    
+    <!-- Main application script with module type -->
+    <script type="module" src="./index.js"></script>
 </body>
 </html>
