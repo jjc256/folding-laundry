@@ -1,6 +1,6 @@
-# Folding Laundry Simulation Project
+# Automated Robotic Laundry Folding
 
-A physics-based simulation of cloth folding using Three.js, with the goal of developing algorithms for robotic laundry folding.
+A physics-based simulation of cloth folding along with algorithms for robotic laundry folding.
 
 ## Project Overview
 
